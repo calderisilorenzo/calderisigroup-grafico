@@ -1,0 +1,65 @@
+<div style="max-width:800px;margin:auto;">
+  <canvas id="solarChart"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+async function getData() {
+  // Radiazione solare da Open-Meteo (Varese)
+  const meteo = await fetch(
+    "https://api.open-meteo.com/v1/forecast?latitude=45.82&longitude=8.83&hourly=shortwave_radiation"
+  ).then(r => r.json());
+
+  // Produzione FV stimata da PVGIS (impianto 3 kWp)
+  const pvgis = await fetch(
+    "https://re.jrc.ec.europa.eu/api/seriescalc?lat=45.82&lon=8.83&peakpower=3&loss=14"
+  ).then(r => r.json());
+
+  const rad = meteo.hourly.shortwave_radiation;
+  const time = meteo.hourly.time;
+
+  // Produzione FV in percentuale (stima)
+  const fv = pvgis.outputs.hourly.map(v => (v.P / 3000 * 100).toFixed(1));
+
+  return { time, rad, fv };
+}
+
+async function drawChart() {
+  const { time, rad, fv } = await getData();
+
+  new Chart(document.getElementById("solarChart"), {
+    type: "line",
+    data: {
+      labels: time,
+      datasets: [
+        {
+          label: "Radiazione solare (W/m²)",
+          data: rad,
+          borderColor: "orange",
+          backgroundColor: "rgba(255,165,0,0.2)",
+          yAxisID: "y1",
+          tension: 0.3
+        },
+        {
+          label: "Produzione FV (%)",
+          data: fv,
+          borderColor: "green",
+          backgroundColor: "rgba(0,128,0,0.2)",
+          yAxisID: "y2",
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y1: { type: "linear", position: "left" },
+        y2: { type: "linear", position: "right", min: 0, max: 100 }
+      }
+    }
+  });
+}
+
+drawChart();
+</script>
